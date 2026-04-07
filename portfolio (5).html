@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TinyML Voice Door Control System | Humber Polytechnic Project</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Arial', 'Helvetica Neue', sans-serif;
+        background: #ffffff;
+        color: #333;
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+
+      /* Humber Color Palette */
+      :root {
+        --humber-blue: #003f87;
+        --humber-light-blue: #0066cc;
+        --humber-gray: #666666;
+        --humber-light-gray: #f5f5f5;
+        --white: #ffffff;
+        --text-dark: #333333;
+      }
+
+      /* ==================== DOOR ENTRANCE ==================== */
+      #door-entrance {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: #ffffff; /* or #f5f5f5 */
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 1s ease;
+      }
+
+      #door-entrance.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .door-container {
+        position: relative;
+        width: 400px;
+        height: 600px;
+        perspective: 1500px;
+      }
+
+      .door-frame {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: #002b5c;
+        border-radius: 15px 15px 0 0;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      }
+
+      .door {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(145deg, #0066cc, #003f87);
+        border-radius: 15px 15px 0 0;
+        transform-origin: left center;
+        transition: transform 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        cursor: pointer;
+        box-shadow: 0 10px 40px rgba(0, 102, 204, 0.4);
+      }
+
+      .door:hover {
+        box-shadow: 0 15px 50px rgba(0, 102, 204, 0.6);
+      }
+
+      .door.open {
+        transform: rotateY(-120deg);
+      }
+
+      .door-panel {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        height: 85%;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+      }
+
+      .door-icon {
+        font-size: 8em;
+        text-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        animation: doorPulse 2s ease-in-out infinite;
+      }
+
+      @keyframes doorPulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+      }
+
+      .door-text {
+        font-size: 1.8em;
+        font-weight: bold;
+        text-align: center;
+        color: #fff;
+      }
+
+      .door-subtext {
+        font-size: 1.1em;
+        color: rgba(255, 255, 255, 0.9);
+        text-align: center;
+        animation: blink 2s ease-in-out infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      .door-handle {
+        position: absolute;
+        right: 30px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 15px;
+        height: 80px;
+        background: linear-gradient(145deg, #c0c0c0, #a0a0a0);
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      .door-handle::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 25px;
+        height: 25px;
+        background: linear-gradient(145deg, #c0c0c0, #a0a0a0);
+        border-radius: 50%;
+      }
+
+      .welcome-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 3em;
+        font-weight: bold;
+        font-family: 'Bebas Neue', sans-serif;
+        color: #f2b408;
+        opacity: 0;
+        text-align: center;
+        pointer-events: none;
+        animation: welcomeFade 2s ease forwards;
+        animation-play-state: paused;
+      }
+
+      .welcome-message.show {
+        animation-play-state: running;
+      }
+
+      @keyframes welcomeFade {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.5);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      /* ==================== HUMBER HEADER ==================== */
+      .humber-header {
+        background: white;
+        color: var(--text-dark);
+        padding: 20px 0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-bottom: 3px solid var(--humber-blue);
+      }
+
+      .humber-header .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .humber-branding {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .humber-logo-box {
+        background: white;
+        color: var(--humber-blue);
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 1.3em;
+        letter-spacing: 1px;
+      }
+
+      .humber-text {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .project-info-header {
+        text-align: right;
+      }
+
+      .project-title-header {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: var(--humber-blue);
+      }
+
+      .faculty-name {
+        font-size: 0.9em;
+        color: var(--humber-gray);
+        margin-top: 5px;
+      }
+
+      .humber-logo-img {
+        height: 60px;
+        width: auto;
+      }
+
+      /* ==================== MAIN CONTENT ==================== */
+      #main-content {
+        opacity: 0;
+        transform: translateY(50px);
+        transition:
+          opacity 1s ease,
+          transform 1s ease;
+      }
+
+      #main-content.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Hero Section */
+      .hero {
+        background: linear-gradient(
+          135deg,
+          var(--humber-blue) 0%,
+          var(--humber-light-blue) 100%
+        );
+        color: white;
+        padding: 80px 20px;
+        text-align: center;
+      }
+
+      .hero h1 {
+        font-size: 3em;
+        margin-bottom: 20px;
+        font-weight: 700;
+      }
+
+      .hero .subtitle {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+        opacity: 0.95;
+      }
+
+      .hero .program-info {
+        font-size: 1.1em;
+        margin-top: 20px;
+        opacity: 0.9;
+      }
+
+      /* Container */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 60px 20px;
+      }
+
+      /* Section Styling */
+      .section {
+        margin-bottom: 60px;
+      }
+
+      .section-title {
+        font-size: 2.2em;
+        margin-bottom: 30px;
+        color: var(--humber-blue);
+        font-weight: 700;
+        border-bottom: 3px solid var(--humber-light-blue);
+        padding-bottom: 10px;
+      }
+
+      /* Hardware Images Grid */
+      .images-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 30px;
+        margin: 40px 0;
+      }
+
+      .image-card {
+        background: white;
+        border: 2px solid var(--humber-light-gray);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+
+      .image-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 63, 135, 0.2);
+      }
+
+      .image-card img {
+        width: 100%;
+        display: block;
+      }
+
+      .image-caption {
+        padding: 15px;
+        background: var(--humber-light-gray);
+        text-align: center;
+        color: var(--text-dark);
+        font-weight: 600;
+      }
+
+      /* Hardware Cards */
+      .hardware-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+        margin-top: 40px;
+      }
+
+      .hardware-card {
+        background: white;
+        border: 2px solid var(--humber-light-gray);
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      .hardware-card:hover {
+        border-color: var(--humber-light-blue);
+        box-shadow: 0 6px 15px rgba(0, 63, 135, 0.15);
+        transform: translateY(-3px);
+      }
+
+      .hardware-icon {
+        font-size: 3.5em;
+        margin-bottom: 15px;
+      }
+
+      .hardware-card h3 {
+        color: var(--humber-blue);
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+
+      .hardware-card p {
+        color: var(--humber-gray);
+        line-height: 1.6;
+      }
+
+      /* Architecture Diagram */
+      .architecture {
+        background: var(--humber-light-gray);
+        padding: 40px;
+        border-radius: 8px;
+        margin: 30px 0;
+      }
+
+      .flow-diagram {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-top: 30px;
+      }
+
+      .flow-box {
+        background: white;
+        padding: 25px 30px;
+        border-radius: 8px;
+        border: 2px solid var(--humber-light-blue);
+        min-width: 150px;
+        text-align: center;
+        transition: transform 0.3s ease;
+      }
+
+      .flow-box:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 63, 135, 0.2);
+      }
+
+      .flow-box strong {
+        color: var(--humber-blue);
+        font-weight: 700;
+      }
+
+      .flow-arrow {
+        font-size: 2em;
+        color: var(--humber-blue);
+        font-weight: bold;
+      }
+
+      /* Metrics Grid */
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 25px;
+        margin-top: 40px;
+      }
+
+      .metric-card {
+        background: var(--humber-blue);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        text-align: center;
+        transition: transform 0.3s ease;
+      }
+
+      .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 63, 135, 0.3);
+      }
+
+      .metric-value {
+        font-size: 2.8em;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .metric-label {
+        font-size: 1em;
+        opacity: 0.9;
+      }
+
+      /* Setup Instructions */
+      .steps-container {
+        margin-top: 40px;
+      }
+
+      .step {
+        background: white;
+        border: 2px solid var(--humber-light-gray);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+      }
+
+      .step-header {
+        padding: 25px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--humber-light-gray);
+        transition: background 0.3s ease;
+      }
+
+      .step-header:hover {
+        background: #e8e8e8;
+      }
+
+      .step-number {
+        background: var(--humber-blue);
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 20px;
+      }
+
+      .step-title {
+        flex: 1;
+        font-size: 1.3em;
+        color: var(--humber-blue);
+        font-weight: 700;
+      }
+
+      .step-toggle {
+        font-size: 1.5em;
+        color: var(--humber-blue);
+        transition: transform 0.3s ease;
+      }
+
+      .step.active .step-toggle {
+        transform: rotate(180deg);
+      }
+
+      .step-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease;
+      }
+
+      .step.active .step-content {
+        max-height: 2000px;
+      }
+
+      .step-body {
+        padding: 30px;
+      }
+
+      .step-body h4 {
+        color: var(--humber-blue);
+        margin: 20px 0 10px 0;
+        font-weight: 700;
+      }
+
+      .step-body ul {
+        margin: 15px 0 15px 20px;
+        color: var(--humber-gray);
+      }
+
+      .code-block {
+        background: #f8f8f8;
+        padding: 20px;
+        border-radius: 5px;
+        border-left: 4px solid var(--humber-blue);
+        margin: 15px 0;
+        overflow-x: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 0.95em;
+      }
+
+      .code-block code {
+        color: var(--text-dark);
+      }
+
+      /* Technical Specs */
+      .tech-specs {
+        background: var(--humber-light-gray);
+        padding: 40px;
+        border-radius: 8px;
+        margin: 30px 0;
+      }
+
+      .tech-specs h3 {
+        color: var(--humber-blue);
+        margin: 25px 0 15px 0;
+        font-weight: 700;
+      }
+
+      .tech-specs ul {
+        margin-left: 20px;
+        color: var(--humber-gray);
+      }
+
+      .tech-specs ul li {
+        margin: 8px 0;
+      }
+
+      .tech-specs strong {
+        color: var(--text-dark);
+      }
+
+      /* Video Container */
+      .video-container {
+        position: relative;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        margin: 40px 0;
+        background: #000;
+        border: 3px solid var(--humber-blue);
+      }
+
+      .video-container video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .video-caption {
+        text-align: center;
+        color: var(--humber-gray);
+        margin-top: 15px;
+        font-style: italic;
+      }
+
+      /* Download Button */
+      .download-section {
+        text-align: center;
+        margin: 60px 0;
+        padding: 40px;
+        background: var(--humber-light-gray);
+        border-radius: 8px;
+      }
+
+      .download-btn {
+        display: inline-block;
+        padding: 18px 45px;
+        background: var(--humber-blue);
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        font-weight: bold;
+        transition: all 0.3s ease;
+      }
+
+      .download-btn:hover {
+        background: var(--humber-light-blue);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0, 63, 135, 0.3);
+      }
+
+      /* Footer */
+      .footer {
+        background: var(--humber-blue);
+        color: white;
+        text-align: center;
+        padding: 40px 20px;
+        margin-top: 60px;
+      }
+
+      .footer p {
+        margin: 10px 0;
+      }
+
+      .footer a {
+        color: white;
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .door-container {
+          width: 300px;
+          height: 450px;
+        }
+
+        .door-icon {
+          font-size: 5em;
+        }
+
+        .door-text {
+          font-size: 1.3em;
+        }
+
+        .humber-branding {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .humber-logo-box {
+          font-size: 1.1em;
+        }
+
+        .humber-logo {
+          font-size: 1.2em;
+        }
+
+        .hero h1 {
+          font-size: 2em;
+        }
+
+        .section-title {
+          font-size: 1.8em;
+        }
+
+        .images-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .flow-diagram {
+          flex-direction: column;
+        }
+
+        .flow-arrow {
+          transform: rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Door Entrance -->
+    <div id="door-entrance">
+      <div class="door-container">
+        <div class="door-frame"></div>
+        <div class="door" id="interactive-door" onclick="openDoor()">
+          <div class="door-panel">
+            <div class="door-icon">🚪</div>
+            <div class="door-text">TinyML Voice Door Control</div>
+            <div class="door-subtext">Click to Enter →</div>
+          </div>
+          <div class="door-handle"></div>
+        </div>
+      </div>
+      <div class="welcome-message" id="welcome-msg">
+        Welcome to open and close door Project!
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content">
+      <!-- Humber Header -->
+      <header class="humber-header">
+        <div class="container">
+          <div>
+            <img
+              src="https://humber.ca/arboretum/assets/images/logos/Polytechnic_Logo.png"
+              alt="Humber Polytechnic"
+              class="humber-logo-img"
+              style="height: 60px; width: auto"
+            />
+          </div>
+          <div class="project-info-header">
+            <div class="project-title-header">
+              TinyML Voice Door Control System
+            </div>
+            <div class="faculty-name">
+              Artifical Intelligence with Machine Learning
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1>TinyML Voice Door Control System</h1>
+        <p class="subtitle">Real-time AI Voice Recognition on Edge Devices</p>
+        <p class="program-info">
+          Capstone Project | Embedded Machine Learning & IoT
+        </p>
+      </section>
+
+      <!-- Raspberry Pi Feature Section -->
+      <section
+        style="background: #f5f5f5; padding: 60px 20px; text-align: center"
+      >
+        <div class="container">
+          <h2
+            style="
+              font-size: 2.2em;
+              color: #003f87;
+              margin-bottom: 30px;
+              font-weight: 700;
+            "
+          >
+            Powered by Raspberry Pi 4
+          </h2>
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 40px;
+              flex-wrap: wrap;
+              justify-content: center;
+            "
+          >
+            <!-- Raspberry Pi Image -->
+            <div style="flex: 1; min-width: 300px; max-width: 500px">
+              <img
+                src="https://cdn11.bigcommerce.com/s-am5zt8xfow/images/stencil/1280x1280/products/3556/11365/PI_5_HERO__55628.1695665352.jpg"
+                alt="Raspberry Pi 4"
+                style="
+                  width: 100%;
+                  border-radius: 8px;
+                  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+                "
+              />
+            </div>
+
+            <!-- Pi Specifications -->
+            <div style="flex: 1; min-width: 300px; text-align: left">
+              <h3
+                style="
+                  color: #003f87;
+                  margin-bottom: 20px;
+                  font-size: 1.8em;
+                  font-weight: 700;
+                "
+              >
+                Hardware Specifications
+              </h3>
+              <ul style="list-style: none; padding: 0">
+                <li
+                  style="
+                    padding: 12px 0;
+                    border-bottom: 1px solid #ddd;
+                    color: #666;
+                  "
+                >
+                  <strong style="color: #333">Processor:</strong> Quad-core ARM
+                  Cortex-A72
+                </li>
+                <li
+                  style="
+                    padding: 12px 0;
+                    border-bottom: 1px solid #ddd;
+                    color: #666;
+                  "
+                >
+                  <strong style="color: #333">RAM:</strong> 4GB LPDDR4
+                </li>
+                <li
+                  style="
+                    padding: 12px 0;
+                    border-bottom: 1px solid #ddd;
+                    color: #666;
+                  "
+                >
+                  <strong style="color: #333">Connectivity:</strong> Dual-band
+                  WiFi, Bluetooth 5.0
+                </li>
+                <li
+                  style="
+                    padding: 12px 0;
+                    border-bottom: 1px solid #ddd;
+                    color: #666;
+                  "
+                >
+                  <strong style="color: #333">GPIO:</strong> 40-pin header for
+                  hardware control
+                </li>
+                <li
+                  style="
+                    padding: 12px 0;
+                    border-bottom: 1px solid #ddd;
+                    color: #666;
+                  "
+                >
+                  <strong style="color: #333">Performance:</strong> Real-time
+                  TinyML inference
+                </li>
+                <li style="padding: 12px 0; color: #666">
+                  <strong style="color: #333">Power:</strong> Runs complete ML
+                  pipeline
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="container">
+        <!-- Hardware Setup Photos -->
+        <section class="section">
+          <h2 class="section-title">Hardware Setup</h2>
+
+          <div class="images-grid">
+            <div class="image-card">
+              <img
+                src="LCD_and_Raspberry_Pi_Connection.jpeg"
+                alt="Raspberry Pi and Connections"
+              />
+              <div class="image-caption">Raspberry Pi and Connections</div>
+            </div>
+
+            <div class="image-card">
+              <img
+                src="Complete_System_with_Door.jpeg"
+                alt="Complete System with Door"
+              />
+              <div class="image-caption">Complete System with Door</div>
+            </div>
+
+            <div class="image-card">
+              <img
+                src="Raspberry_Pi_GPIO_Connections.jpeg"
+                alt="Raspberry Pi GPIO Connections"
+              />
+              <div class="image-caption">Raspberry Pi GPIO Connections</div>
+            </div>
+
+            <div class="image-card">
+              <img
+                src="All_Components_Labeled.jpeg"
+                alt="All Components Labeled"
+              />
+              <div class="image-caption">All Components Labeled</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Hardware Components -->
+        <section class="section">
+          <h2 class="section-title">Hardware Components</h2>
+
+          <div class="hardware-grid">
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>Raspberry Pi 4</h3>
+              <p>
+                Quad-core ARM processor running TFLite runtime for real-time
+                inference
+              </p>
+            </div>
+
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>USB Microphone</h3>
+              <p>
+                16kHz audio capture with gooseneck stand for optimal positioning
+              </p>
+            </div>
+
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>LCD Display (16x2)</h3>
+              <p>I2C interface showing system status and confidence scores</p>
+            </div>
+
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>Servo Motor</h3>
+              <p>180° rotation for door actuation (0° closed, 175° open)</p>
+            </div>
+
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>Rainbow Cable</h3>
+              <p>GPIO connections between Raspberry Pi, LCD, and servo</p>
+            </div>
+
+            <div class="hardware-card">
+              <div class="hardware-icon"></div>
+              <h3>I2C Backpack</h3>
+              <p>Simplifies LCD wiring from 16 pins to 4 pins</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- System Architecture -->
+        <section class="section">
+          <h2 class="section-title">System Architecture</h2>
+
+          <div class="architecture">
+            <div class="flow-diagram">
+              <div class="flow-box">
+                <div style="font-size: 2em"></div>
+                <div><strong>Microphone</strong></div>
+                <div style="font-size: 0.9em; color: #666">16kHz Audio</div>
+              </div>
+
+              <div class="flow-arrow"></div>
+
+              <div class="flow-box">
+                <div style="font-size: 2em"></div>
+                <div><strong>MFCC</strong></div>
+                <div style="font-size: 0.9em; color: #666">13 Features</div>
+              </div>
+
+              <div class="flow-arrow"></div>
+
+              <div class="flow-box">
+                <div style="font-size: 2em"></div>
+                <div><strong>TinyML</strong></div>
+                <div style="font-size: 0.9em; color: #666">CNN Model</div>
+              </div>
+
+              <div class="flow-arrow"></div>
+
+              <div class="flow-box">
+                <div style="font-size: 2em"></div>
+                <div><strong>Servo</strong></div>
+                <div style="font-size: 0.9em; color: #666">Door Control</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Performance Metrics -->
+        <section class="section">
+          <h2 class="section-title">Performance Metrics</h2>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value">95%</div>
+              <div class="metric-label">Overall Accuracy</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-value">90%</div>
+              <div class="metric-label">"Open" Precision</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-value">100%</div>
+              <div class="metric-label">"Close" Precision</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-value">47ms</div>
+              <div class="metric-label">Avg Inference Time</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-value">~5W</div>
+              <div class="metric-label">Power Consumption</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-value">2,121</div>
+              <div class="metric-label">Training Samples</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Setup Instructions -->
+        <section class="section">
+          <h2 class="section-title">How to Run This Project</h2>
+
+          <div class="steps-container">
+            <!-- Step 1 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">1</div>
+                  <div class="step-title">Hardware Setup</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>Required Components:</h4>
+                  <ul>
+                    <li>Raspberry Pi 4 (4GB RAM recommended)</li>
+                    <li>USB Microphone</li>
+                    <li>16x2 LCD Display with I2C Backpack</li>
+                    <li>Servo Motor (SG90 or similar)</li>
+                    <li>Jumper Wires & Breadboard</li>
+                    <li>MicroSD Card (16GB+) with Raspberry Pi OS</li>
+                  </ul>
+
+                  <h4>Wiring Connections:</h4>
+                  <div class="code-block">
+                    <code
+                      >LCD Display (I2C): - VCC → 5V (Pin 2) - GND → Ground (Pin
+                      6) - SDA → GPIO 2 (Pin 3) - SCL → GPIO 3 (Pin 5) Servo
+                      Motor: - Red (VCC) → 5V (Pin 4) - Brown (GND) → Ground
+                      (Pin 14) - Orange (Signal) → GPIO 18 (Pin 12) USB
+                      Microphone: - Connect to any USB port</code
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">2</div>
+                  <div class="step-title">Install Dependencies</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>System Packages:</h4>
+                  <div class="code-block">
+                    <code
+                      >sudo apt-get update sudo apt-get install -y python3-pip
+                      portaudio19-dev libatlas-base-dev sudo apt-get install -y
+                      libjasper-dev libqtgui4 libqt4-test</code
+                    >
+                  </div>
+
+                  <h4>Python Libraries:</h4>
+                  <div class="code-block">
+                    <code
+                      >pip3 install numpy sounddevice librosa pip3 install
+                      tflite-runtime RPi.GPIO pip3 install RPLCD smbus2</code
+                    >
+                  </div>
+
+                  <p style="margin-top: 15px; color: #666">
+                    <strong>Note:</strong> Installation may take 15-20 minutes
+                    on Raspberry Pi.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">3</div>
+                  <div class="step-title">Download Project Files</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>Project Structure:</h4>
+                  <div class="code-block">
+                    <code
+                      >voice_door_project/ ├── 7882_project_final.py # Main
+                      production code ├── door_model.tflite # Trained TinyML
+                      model (117KB) ├── requirements.txt # Python dependencies
+                      └── README.md # Documentation</code
+                    >
+                  </div>
+
+                  <h4>Download and Extract:</h4>
+                  <div class="code-block">
+                    <code
+                      ># Create project directory mkdir -p ~/voice_door_project
+                      cd ~/voice_door_project # Copy files from USB/download #
+                      Or clone from repository (if available)</code
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">4</div>
+                  <div class="step-title">Configure Hardware Settings</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>Enable I2C Interface:</h4>
+                  <div class="code-block">
+                    <code
+                      >sudo raspi-config # Navigate to: Interface Options → I2C
+                      → Enable</code
+                    >
+                  </div>
+
+                  <h4>Verify LCD Connection:</h4>
+                  <div class="code-block">
+                    <code
+                      >sudo i2cdetect -y 1 # Should show address 0x27 or
+                      0x3f</code
+                    >
+                  </div>
+
+                  <h4>Test Microphone:</h4>
+                  <div class="code-block">
+                    <code
+                      >arecord -l # List recording devices arecord -d 3 test.wav
+                      # Record 3 seconds aplay test.wav # Play back</code
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">5</div>
+                  <div class="step-title">Run the System</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>Start Voice Control:</h4>
+                  <div class="code-block">
+                    <code
+                      >cd ~/voice_door_project python3
+                      7882_project_final.py</code
+                    >
+                  </div>
+
+                  <h4>Expected Output:</h4>
+                  <div class="code-block">
+                    <code>TinyML Voice Door System Ready Listening...</code>
+                  </div>
+
+                  <h4>Usage:</h4>
+                  <ul>
+                    <li>
+                      Say <strong>"OPEN"</strong> clearly → Door opens (servo →
+                      175°)
+                    </li>
+                    <li>
+                      Say <strong>"CLOSE"</strong> clearly → Door closes (servo
+                      → 0°)
+                    </li>
+                    <li>LCD shows status: READY / OPEN / CLOSED</li>
+                    <li>System has 3-second cooldown between commands</li>
+                    <li>Minimum 80% confidence required for execution</li>
+                  </ul>
+
+                  <h4>Stop System:</h4>
+                  <div class="code-block">
+                    <code>Press Ctrl+C to stop</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="step">
+              <div class="step-header" onclick="toggleStep(this)">
+                <div style="display: flex; align-items: center">
+                  <div class="step-number">6</div>
+                  <div class="step-title">Troubleshooting</div>
+                </div>
+                <div class="step-toggle">▼</div>
+              </div>
+              <div class="step-content">
+                <div class="step-body">
+                  <h4>Common Issues & Solutions:</h4>
+
+                  <div style="margin: 20px 0">
+                    <strong style="color: #003f87"
+                      >Problem: LCD shows nothing</strong
+                    >
+                    <ul>
+                      <li>
+                        Check I2C address: <code>sudo i2cdetect -y 1</code>
+                      </li>
+                      <li>Verify wiring connections (SDA, SCL, VCC, GND)</li>
+                      <li>Adjust LCD backpack potentiometer (contrast)</li>
+                    </ul>
+                  </div>
+
+                  <div style="margin: 20px 0">
+                    <strong style="color: #003f87"
+                      >Problem: Microphone not detected</strong
+                    >
+                    <ul>
+                      <li>Run <code>arecord -l</code> to list devices</li>
+                      <li>Replug USB microphone</li>
+                      <li>Try different USB port</li>
+                    </ul>
+                  </div>
+
+                  <div style="margin: 20px 0">
+                    <strong style="color: #003f87"
+                      >Problem: Servo doesn't move</strong
+                    >
+                    <ul>
+                      <li>Check GPIO 18 connection</li>
+                      <li>Verify servo has power (5V)</li>
+                      <li>Test servo separately with simple script</li>
+                    </ul>
+                  </div>
+
+                  <div style="margin: 20px 0">
+                    <strong style="color: #003f87"
+                      >Problem: Low accuracy</strong
+                    >
+                    <ul>
+                      <li>Speak closer to microphone (15-20cm)</li>
+                      <li>Reduce background noise</li>
+                      <li>Speak clearly and distinctly</li>
+                      <li>Check microphone sensitivity in alsamixer</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Technical Specifications -->
+        <section class="section">
+          <h2 class="section-title">Technical Specifications</h2>
+
+          <div class="tech-specs">
+            <h3>Machine Learning Model:</h3>
+            <ul>
+              <li><strong>Architecture:</strong> Depthwise Separable CNN</li>
+              <li><strong>Parameters:</strong> 30,020 (29,380 trainable)</li>
+              <li>
+                <strong>Input:</strong> 13 MFCC coefficients (39 with deltas)
+              </li>
+              <li>
+                <strong>Output:</strong> 4 classes (open, close, noise, unknown)
+              </li>
+              <li>
+                <strong>Framework:</strong> TensorFlow → TFLite conversion
+              </li>
+              <li>
+                <strong>Quantization:</strong> Float32 (117KB) / Int8 (46KB
+                available)
+              </li>
+            </ul>
+
+            <h3>Audio Processing:</h3>
+            <ul>
+              <li><strong>Sample Rate:</strong> 16kHz (optimal for speech)</li>
+              <li><strong>Window Size:</strong> 1 second</li>
+              <li>
+                <strong>Feature Extraction:</strong> MFCC (Mel-Frequency
+                Cepstral Coefficients)
+              </li>
+              <li><strong>Channels:</strong> Mono (single channel)</li>
+            </ul>
+
+            <h3>Safety Features:</h3>
+            <ul>
+              <li>
+                <strong>Confidence Threshold:</strong> 80% (prevents false
+                positives)
+              </li>
+              <li>
+                <strong>Cooldown Timer:</strong> 3 seconds (prevents spam
+                triggers)
+              </li>
+              <li>
+                <strong>Error Handling:</strong> Graceful shutdown on Ctrl+C
+              </li>
+              <li><strong>Status Display:</strong> Real-time LCD feedback</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Demo Video -->
+        <section class="section">
+          <h2 class="section-title">Live System Demo</h2>
+
+          <div class="video-container">
+            <video controls>
+              <source src="Project.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+
+          <p class="video-caption">
+            Watch the complete system demonstration including voice commands,
+            hardware response, and real-time operation
+          </p>
+        </section>
+
+        <!-- Download Section -->
+        <div class="download-section">
+          <h3 style="color: var(--humber-blue); margin-bottom: 20px">
+            Project Resources
+          </h3>
+          <a
+            href="#"
+            class="download-btn"
+            onclick="
+              alert('Add your GitHub repository link here!');
+              return false;
+            "
+          >
+            Download Project Files
+          </a>
+          <p style="color: #666; margin-top: 15px">
+            Complete source code, trained model, and documentation
+          </p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>
+          <strong>Humber Polytechnic</strong> | Artifical Intelligence with
+          Machine Learning
+        </p>
+        <p>TinyML Voice Door Control System | Capstone Project 2026</p>
+        <p style="margin-top: 15px; font-size: 0.9em">
+          Embedded Machine Learning • IoT • Real-time Audio Processing
+        </p>
+        <p style="margin-top: 15px">
+          <a href="https://humber.ca">humber.ca</a>
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      function openDoor() {
+        const door = document.getElementById('interactive-door');
+        const entrance = document.getElementById('door-entrance');
+        const mainContent = document.getElementById('main-content');
+        const welcomeMsg = document.getElementById('welcome-msg');
+
+        door.classList.add('open');
+
+        setTimeout(() => {
+          welcomeMsg.classList.add('show');
+        }, 600);
+
+        setTimeout(() => {
+          entrance.classList.add('hidden');
+          mainContent.classList.add('visible');
+          document.body.style.overflow = 'auto';
+        }, 2500);
+      }
+
+      function toggleStep(header) {
+        const step = header.parentElement;
+        const allSteps = document.querySelectorAll('.step');
+
+        allSteps.forEach((s) => {
+          if (s !== step) {
+            s.classList.remove('active');
+          }
+        });
+
+        step.classList.toggle('active');
+      }
+
+      document.body.style.overflow = 'hidden';
+    </script>
+  </body>
+</html>
